@@ -1,0 +1,33 @@
+cmake_minimum_required(VERSION 3.10)
+
+# set the project name
+project(BranchedFlow)
+
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
+
+# find_package(OpenGL REQUIRED)
+
+# GLM
+find_package(GLM REQUIRED)
+
+file(GLOB_RECURSE glh "${CMAKE_SOURCE_DIR}/include/GL/*.h")
+file(GLOB_RECURSE libraries "${CMAKE_SOURCE_DIR}/lib/*.lib")
+
+
+# add the executable
+add_executable(BranchedFlow 
+${CMAKE_SOURCE_DIR}/scr/main.cpp 
+${CMAKE_SOURCE_DIR}/scr/auxiliar.cpp 
+${CMAKE_SOURCE_DIR}/scr/auxiliar.h 
+${CMAKE_SOURCE_DIR}/scr/PLANE.h
+${glh})
+
+target_link_libraries(BranchedFlow ${libraries} )
+
+target_include_directories(BranchedFlow PUBLIC
+                          "${CMAKE_SOURCE_DIR}/lib"
+                          "${CMAKE_SOURCE_DIR}/include"
+                          )
