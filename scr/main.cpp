@@ -16,8 +16,8 @@
 
 
 //Variables de la ventana
-int WIDTH =1024;
-int HEIGHT = 1024;
+int WIDTH =1440;
+int HEIGHT = 1440;
 int sizescreen = WIDTH * HEIGHT;
 
 //////////////////////////////////////////////////////////////
@@ -46,7 +46,7 @@ unsigned int velparticleBuffer;
 unsigned int potcolorBuffer;
 unsigned int pariclecolorBuffer;
 
-int numparticles;
+int numparticles=2048;
 int wgs = 1024;
 glm::ivec2 size= glm::ivec2(WIDTH, HEIGHT);
 glm::vec2 sstart= glm::vec2(-1., -1.);
@@ -95,9 +95,9 @@ int main(int argc, char** argv)
 	scanf("%d", &numparticles);
 	numparticles *= 2;
 
-	//printf("\n Directional (0) or Radial (1) configuration?\n");
-	char answer[20]="1";
-	//scanf("%s", &answer);
+	printf("\n Directional (0) or Radial (1) configuration?\n");
+	int answer=1;
+	scanf("%d", &answer);
 
 	initContext(argc, argv);
 	initOGL();
@@ -106,7 +106,7 @@ int main(int argc, char** argv)
 
 	initObj();
 
-	if (stricmp(answer, "1")==1 || stricmp(answer, "Radial")==1 || stricmp(answer, "radial") == 1) {
+	if (answer==0) {
 		initObj2();
 	}
 	else {
@@ -165,7 +165,9 @@ void initOGL()
 	glPolygonMode(GL_FRONT, GL_FILL);
 	glDisable(GL_CULL_FACE);	
 	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_SRC_ALPHA);
+	glBlendColor(0.f, .5f, 0.f, 1.f);
+	glBlendFunc(GL_SRC_ALPHA, GL_CONSTANT_COLOR);
+	glBlendEquation(GL_FUNC_SUBTRACT);
 
 }
 
@@ -247,15 +249,18 @@ void initShader2(const char* name) {
 
 void initObj()
 {
-	glm::vec2* pospot = new glm::vec2[sizescreen];
+	using namespace glm;
+
+	vec2* pospot = new vec2[sizescreen];
 	float* potential = new float[sizescreen];
-	glm::vec4* potcolor = new glm::vec4[sizescreen];
+	vec4* potcolor = new vec4[sizescreen];
 	for (int i = 0; i < WIDTH; ++i) {
 		for (int j = 0; j < HEIGHT; ++j) {
-			float rand = glm::linearRand(0.f, .5f);
+			//float rand = linearRand(-0.5f, .5f);
+			float rand = gaussRand(0.f, 1.f);
 			potential[i * WIDTH + j] = rand;
-			potcolor[i * WIDTH + j] = glm::vec4(rand,rand,rand,1.f);
-			pospot[i * WIDTH + j] = glm::vec2(i,j)/glm::vec2(size)*2.f-1.f;
+			potcolor[i * WIDTH + j] = vec4(rand,rand,rand,.5f);
+			pospot[i * WIDTH + j] = vec2(i,j)/vec2(size)*2.f-1.f;
 		}
 	}
 
@@ -265,7 +270,7 @@ void initObj()
 	glGenBuffers(1, &pospotVBO);
 	
 	glBindBuffer(GL_ARRAY_BUFFER, pospotVBO);
-	glBufferData(GL_ARRAY_BUFFER,sizeof(glm::vec2)* sizescreen, pospot, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER,sizeof(vec2)* sizescreen, pospot, GL_STATIC_DRAW);
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(0);
 
@@ -275,7 +280,7 @@ void initObj()
 
 	glGenBuffers(1, &potcolorBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, potcolorBuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * sizescreen, potcolor, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * sizescreen, potcolor, GL_STATIC_DRAW);
 	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(1);
 
@@ -295,8 +300,9 @@ void initObj2() {
 	vec4* parcol = new vec4[numparticles];
 
 	for (int i = 0; i < numparticles; ++i) {
-		parpos[i] = vec4(-1.f, glm::linearRand(-.1f,.1f),0.f,0.f);
-		parcol[i] = vec4(1.f, 1.f, 0.f,.5f);
+		float rand = linearRand(-.1f, .1f);
+		parpos[i] = vec4(-1.f, rand,-1.f, rand);
+		parcol[i] = vec4(1.f, 1.f, 0.f,1.f);
 		parvel[i] = vec2(.01f, 0.f);
 	}
 
@@ -330,8 +336,9 @@ void initObj2disk() {
 	vec4* parcol = new vec4[numparticles];
 
 	for (int i = 0; i < numparticles; ++i) {
-		parpos[i] = vec4(diskRand(0.1f), 0.f, 0.f);
-		parcol[i] = vec4(1.f, 1.f, 0.f, .5f);
+		vec2 rand = circularRand(0.001f);
+		parpos[i] = vec4(rand,rand);
+		parcol[i] = vec4(1.f, 1.f, 0.f, 1.f);
 		parvel[i] = vec2(normalize(parpos[i]))*0.01f;
 	}
 
@@ -482,6 +489,10 @@ void keyboardFunc(unsigned char key, int x, int y){
 
 	if (key == 'n' || key == 'N') {
 		glutPostRedisplay();
+	}
+
+	if (key == 's' || key == 'S') {
+		saveimage(WIDTH,HEIGHT);
 	}
 }
 

@@ -25,7 +25,9 @@ void main(){
 		return;
 
 	vec2 pot=vec2(potential[(potpos.x+1)*size.x+potpos.y]-potential[(potpos.x+1)*size.x+potpos.y],
-		potential[potpos.x*size.x+potpos.y+1]-potential[potpos.x*size.x+potpos.y-1])*.001;
+		potential[potpos.x*size.x+potpos.y+1]-potential[potpos.x*size.x+potpos.y-1])*.00025;
+
+	//vec2 pot=-.0001*sin(position[gid].xy);
 
 
 	velocity[gid]=velocity[gid]-pot;
