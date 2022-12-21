@@ -1,0 +1,58 @@
+#version 430 
+
+layout(local_size_x=1024) in;
+
+layout(std430,binding=4) buffer pot{
+	float potential[];
+};
+
+layout(std430,binding=2) buffer pos{
+	vec4 position[];
+};
+
+layout(std430,binding=3) buffer vel{
+	vec2 velocity[];
+};
+
+uniform ivec2 size;
+uniform float t,h;
+
+const uint gid=gl_GlobalInvocationID.x;
+
+
+const mat4 hB=h*mat4(.5,0.,0.,1./6.,
+	0.,0.5,0.,1./3.,
+	0.,0.,1.,1./3.,
+	0.,0.,0.,1./6.);
+
+const float q=0., a=-10.;
+
+
+
+vec4 f(vec4 x){
+
+	vec4 eval=vec4(x.zw,x.xy*(2*q*cos(2*t)-a));
+
+	return eval;
+
+}
+
+void main(){
+	
+	ivec2 potpos=ivec2(((position[gid].xy+1)*size)*.5);
+	//if(potpos.x>size.x || potpos.y>size.y)
+	//	return;
+
+	vec4 x=vec4(position[gid].xy,velocity[gid]);
+	mat4 k=mat4(0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.);
+	k[0]=f(x);
+	k[1]=f(x+k*hB[0]);
+	k[2]=f(x+k*hB[1]);
+	k[3]=f(x+k*hB[2]);
+	x=x+k*hB[3];
+
+	position[gid].zw=position[gid].xy;
+	position[gid].xy=x.xy;
+	velocity[gid]=x.zw;
+
+}

@@ -32,8 +32,6 @@ unsigned int program;
 unsigned int cshader;
 unsigned int program2;
 
-unsigned int usize;
-
 //VAO 
 unsigned int vaoparticles;
 unsigned int vaopotential;
@@ -46,18 +44,20 @@ unsigned int velparticleBuffer;
 unsigned int potcolorBuffer;
 unsigned int pariclecolorBuffer;
 
-int numparticles=2048;
+int numparticles=516;
 int wgs = 1024;
+
+unsigned int usize;
 glm::ivec2 size= glm::ivec2(WIDTH, HEIGHT);
-glm::vec2 sstart= glm::vec2(-1., -1.);
-glm::vec2 send= glm::vec2(1.,1.);
-glm::vec2 startaux(-1., -1.);
-glm::vec2 endaux(1., 1.);
-float gamma = 0.f;
 
 unsigned int utrans;
 glm::mat4 trans = glm::mat4(1.f);
-float angle = 0.f;
+
+unsigned int randw, randphi;
+float w[10], phi[10];
+
+unsigned int ut, uh;
+float t = 0.f, h=1e-3f, alpha=1.f;
 
 //////////////////////////////////////////////////////////////
 // Funciones auxiliares
@@ -89,11 +89,12 @@ GLuint loadShader(const char *fileName, GLenum type);
 //y devuelve el identificador de la textura 
 unsigned int loadTex(const char *fileName);
 
+bool anim=false;
+
 int main(int argc, char** argv)
 {
-	printf(" How many paths do you want to simulate?\n");
+	printf(" How many paths do you want to simulate? (min 2)\n");
 	scanf("%d", &numparticles);
-	numparticles *= 2;
 
 	printf("\n Directional (0) or Radial (1) configuration?\n");
 	int answer=1;
@@ -104,14 +105,56 @@ int main(int argc, char** argv)
 	initShader("../shaders/shader.v0.vert", "../shaders/shader.v0.frag");
 	initShader2("../shaders/shader.v0.comp");
 
-	initObj();
+	//initShader2("../shaders/shader.v1.comp");
 
+	//initObj();
+
+	alpha =1.f/sqrtf(numparticles);
 	if (answer==0) {
+		using namespace glm;
 		initObj2();
+		trans = translate(trans, vec3(-1.f, 0.f, 0.f)) * 
+			mat4(.05f, 0.f, 0.f, 0.f, 
+			0.f, 0.05f, 0.f, 0.f, 
+			0.f, 0.f, 1.f, 0.f, 
+			0.f, 0.f, 0.f, 1.f) * 
+			translate(trans, vec3(1.f, 0.f, 0.f));
 	}
 	else {
 		initObj2disk();
+		trans = glm::mat4(.1f, 0.f, 0.f, 0.f,
+			0.f, .1f, 0.f, 0.f, 
+			0.f, 0.f, 1.f, 0.f, 
+			0.f, 0.f, 0.f, 1.f);
 	}
+
+	for (int i = 0; i < 10; ++i) {
+		//w[i] = glm::gaussRand(0.f, 1.f)*2.f;
+		w[i] = glm::linearRand(0.f, 2.f);
+		//phi[i] = glm::gaussRand(0.f, 1.f)*2.f*M_PI;
+		phi[i] = glm::linearRand(0.f, 2.f*(float)M_PI);
+	}
+
+	glUseProgram(program2);
+	glActiveTexture(GL_TEXTURE0);
+
+	if (ut != -1)
+		glUniform1f(ut, t);
+	if (uh != -1)
+		glUniform1f(uh, h);
+	/*if (randphi != -1)
+		glUniform1fv(randphi, 10, &phi[0]);
+	if (randw != -1)
+		glUniform1fv(randw, 10, &w[0]);*/
+
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, posparticleVBO);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, velparticleBuffer);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, potBuffer);
+
+	glUseProgram(program);
+
+	if (utrans != -1)
+		glUniformMatrix4fv(utrans, 1, false, &trans[0][0]);
 
 	glutMainLoop();		// bucle de eventos
 
@@ -151,7 +194,7 @@ void initContext(int argc, char** argv){
 	// Le indicamos a Glut que funciones hay que ejecutar cuando se dan ciertos eventos
 	glutReshapeFunc(resizeFunc);		// redimension de la ventana
 	glutDisplayFunc(renderFunc);		// renderizado
-	//glutIdleFunc(idleFunc);				// cuando el procesador esta ocioso
+	glutIdleFunc(idleFunc);				// cuando el procesador esta ocioso
 	glutKeyboardFunc(keyboardFunc);		// evento de teclado
 	glutMouseFunc(mouseFunc);			// evento de raton
 	glutMotionFunc(mouseMotionFunc);	// control de la camara con el raton
@@ -164,10 +207,9 @@ void initOGL()
 
 	glPolygonMode(GL_FRONT, GL_FILL);
 	glDisable(GL_CULL_FACE);	
+
 	glEnable(GL_BLEND);
-	glBlendColor(0.f, .5f, 0.f, 1.f);
-	glBlendFunc(GL_SRC_ALPHA, GL_CONSTANT_COLOR);
-	glBlendEquation(GL_FUNC_SUBTRACT);
+	glBlendFunc(GL_SRC_ALPHA, GL_DST_ALPHA);
 
 }
 
@@ -219,6 +261,8 @@ void initShader(const char *vname, const char *fname)
 		exit (-1); 
 	}
 
+	utrans = glGetUniformLocation(program, "trans");
+
 }
 
 void initShader2(const char* name) {
@@ -244,7 +288,12 @@ void initShader2(const char* name) {
 		delete[] logString;
 		exit(-1);
 	}
+
 	usize= glGetUniformLocation(program2, "size");
+	ut= glGetUniformLocation(program2, "t");
+	uh= glGetUniformLocation(program2, "h");
+	randw= glGetUniformLocation(program2, "w");
+	randphi= glGetUniformLocation(program2, "phi");
 }
 
 void initObj()
@@ -297,13 +346,15 @@ void initObj2() {
 
 	vec4* parpos = new vec4[numparticles];
 	vec2* parvel = new vec2[numparticles];
-	vec4* parcol = new vec4[numparticles];
+	vec4* parcol = new vec4[numparticles*2];
 
 	for (int i = 0; i < numparticles; ++i) {
 		float rand = linearRand(-.1f, .1f);
 		parpos[i] = vec4(-1.f, rand,-1.f, rand);
-		parcol[i] = vec4(1.f, 1.f, 0.f,1.f);
-		parvel[i] = vec2(.01f, 0.f);
+		float randangle = linearRand(-M_PI_4, M_PI_4)/2.f;
+		parvel[i] = vec2(cos(randangle),sin(randangle))*0.3f;
+		parcol[2*i] = vec4(1.f, 1.f, 0.f, alpha);
+		parcol[2*i+1] = vec4(1.f, 1.f, 0.f,alpha);
 	}
 
 	glGenVertexArrays(1, &vaoparticles);
@@ -317,7 +368,7 @@ void initObj2() {
 
 	glGenBuffers(1, &pariclecolorBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, pariclecolorBuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * numparticles, parcol, GL_STATIC_READ);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * numparticles*2, parcol, GL_STATIC_READ);
 	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(1);
 
@@ -333,13 +384,14 @@ void initObj2disk() {
 
 	vec4* parpos = new vec4[numparticles];
 	vec2* parvel = new vec2[numparticles];
-	vec4* parcol = new vec4[numparticles];
+	vec4* parcol = new vec4[numparticles*2];
 
 	for (int i = 0; i < numparticles; ++i) {
 		vec2 rand = circularRand(0.001f);
 		parpos[i] = vec4(rand,rand);
-		parcol[i] = vec4(1.f, 1.f, 0.f, 1.f);
-		parvel[i] = vec2(normalize(parpos[i]))*0.01f;
+		parcol[2*i] = vec4(1.f, 1.f, 0.f, alpha);
+		parcol[2*i+1] = vec4(1.f, 1.f, 0.f, alpha);
+		parvel[i] = normalize(vec2(parpos[i].x, parpos[i].y));
 	}
 
 	glGenVertexArrays(1, &vaoparticles);
@@ -353,7 +405,7 @@ void initObj2disk() {
 
 	glGenBuffers(1, &pariclecolorBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, pariclecolorBuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * numparticles, parcol, GL_STATIC_READ);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * numparticles*2, parcol, GL_STATIC_READ);
 	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(1);
 
@@ -444,27 +496,24 @@ void renderFunc()
 	glUseProgram(program);
 
 	// Se renderiza el sistema de particulas
-	glDrawArrays(GL_LINES, 0, numparticles);
+	glDrawArrays(GL_LINES, 0, 2*numparticles);
 
 	glutSwapBuffers();
 
-	glUseProgram(program2);	
-	glActiveTexture(GL_TEXTURE0);
-	if(usize!=-1)
-		glUniform2iv(usize, 1,&size[0]);
 
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, posparticleVBO);
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, velparticleBuffer);
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, potBuffer);
+	glUseProgram(program2);
+
+	if (usize != -1)
+		glUniform2iv(usize, 1, &size[0]);
 
 	// Se lanzan los compute shaders
 	glDispatchCompute(numparticles/wgs+1, 1, 1);
 
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
-
-
 	std::cout << "Calculations done" << std::endl;
+
+	t += h;
 
 }
 
@@ -482,13 +531,15 @@ void resizeFunc(int width, int height)
 
 void idleFunc()
 {
-	//glutPostRedisplay();
+	if (anim) {
+		glutPostRedisplay();
+	}
 }
 
 void keyboardFunc(unsigned char key, int x, int y){
 
 	if (key == 'n' || key == 'N') {
-		glutPostRedisplay();
+		anim = !anim;
 	}
 
 	if (key == 's' || key == 'S') {
