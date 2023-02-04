@@ -14,31 +14,15 @@ layout(std430,binding=3) buffer vel{
 	vec2 velocity[];
 };
 
-uniform ivec2 size;
-
 const uint gid=gl_GlobalInvocationID.x;
 
-uniform float w[10]=
-	{1.64691565665459,1.38965724595163,0.634198960121721,1.90044409767671,0.0688921610058175,0.877488719312797,0.763116914186017,1.53103357629800,1.59039980227413,0.373745209108757};
-uniform float phi[10]=
-	{4.76102165511013,4.66923900501058,2.46443504621593,4.11848904874470,1.07559768164234,4.43621840643643,0.200011672644315,1.73995843032658,0.290103403225716,0.610296980721259};
+uniform float w[10];
+uniform float phi[10];
 
 void main(){
-	
-	ivec2 potpos=ivec2(((position[gid].xy+1)*size)*.5);
-	//if(potpos.x>size.x || potpos.y>size.y)
-	//	return;
-
-	vec2 pot=vec2(potential[(potpos.x+1)*size.x+potpos.y]-potential[(potpos.x+1)*size.x+potpos.y],
-		potential[potpos.x*size.x+potpos.y+1]-potential[potpos.x*size.x+potpos.y-1])*.00025;
 
 	vec2 pos=position[gid].xy;
 	vec2 vel=velocity[gid];
-
-
-//	velocity[gid]=vel-pot;
-//	position[gid].zw=pos;
-//	position[gid].xy=pos+vel;
 
 	for(int i=0;i<10;++i){
 	

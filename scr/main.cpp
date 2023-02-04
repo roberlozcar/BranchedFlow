@@ -53,11 +53,8 @@ glm::ivec2 size= glm::ivec2(WIDTH, HEIGHT);
 unsigned int utrans;
 glm::mat4 trans = glm::mat4(1.f);
 
-unsigned int randw, randphi;
-float w[10], phi[10];
-
-unsigned int ut, uh;
-float t = 0.f, h=1e-3f, alpha=1.f;
+unsigned int urandw, urandphi;
+float w[10], phi[10], alpha = 1.f;
 
 //////////////////////////////////////////////////////////////
 // Funciones auxiliares
@@ -138,14 +135,10 @@ int main(int argc, char** argv)
 	glUseProgram(program2);
 	glActiveTexture(GL_TEXTURE0);
 
-	if (ut != -1)
-		glUniform1f(ut, t);
-	if (uh != -1)
-		glUniform1f(uh, h);
-	/*if (randphi != -1)
-		glUniform1fv(randphi, 10, &phi[0]);
-	if (randw != -1)
-		glUniform1fv(randw, 10, &w[0]);*/
+	if (urandphi != -1)
+		glUniform1fv(urandphi, 10, &phi[0]);
+	if (urandw != -1)
+		glUniform1fv(urandw, 10, &w[0]);
 
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, posparticleVBO);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, velparticleBuffer);
@@ -289,11 +282,8 @@ void initShader2(const char* name) {
 		exit(-1);
 	}
 
-	usize= glGetUniformLocation(program2, "size");
-	ut= glGetUniformLocation(program2, "t");
-	uh= glGetUniformLocation(program2, "h");
-	randw= glGetUniformLocation(program2, "w");
-	randphi= glGetUniformLocation(program2, "phi");
+	urandw= glGetUniformLocation(program2, "w");
+	urandphi= glGetUniformLocation(program2, "phi");
 }
 
 void initObj()
@@ -512,8 +502,6 @@ void renderFunc()
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
 	std::cout << "Calculations done" << std::endl;
-
-	t += h;
 
 }
 
