@@ -56,6 +56,8 @@ glm::mat4 trans = glm::mat4(1.f);
 unsigned int urandw, urandphi;
 float w[10], phi[10], alpha = 1.f;
 
+int menuvalue = 0;
+
 //////////////////////////////////////////////////////////////
 // Funciones auxiliares
 //////////////////////////////////////////////////////////////
@@ -67,6 +69,7 @@ void idleFunc();
 void keyboardFunc(unsigned char key, int x, int y);
 void mouseFunc(int button, int state, int x, int y);
 void mouseMotionFunc(int, int);
+void menu(int value);
 
 //Funciones de inicialización y destrucción
 void initContext(int argc, char** argv);
@@ -77,6 +80,7 @@ void initObj();
 void initObj2();
 void initObj2disk();
 void destroy();
+void createmenu();
 
 //Carga el shader indicado, devuele el ID del shader
 //!Por implementar
@@ -93,61 +97,18 @@ int main(int argc, char** argv)
 	printf(" How many paths do you want to simulate? (min 2)\n");
 	scanf("%d", &numparticles);
 
-	printf("\n Directional (0) or Radial (1) configuration?\n");
+	/*printf("\n Directional (0) or Radial (1) configuration?\n");
 	int answer=1;
-	scanf("%d", &answer);
+	scanf("%d", &answer);*/
 
 	initContext(argc, argv);
 	initOGL();
 	initShader("../shaders/shader.v0.vert", "../shaders/shader.v0.frag");
 	initShader2("../shaders/shader.v0.comp");
 
-	//initShader2("../shaders/shader.v1.comp");
-
-	//initObj();
-
 	alpha =1.f/sqrtf(numparticles);
-	if (answer==0) {
-		using namespace glm;
-		initObj2();
-		trans = translate(trans, vec3(-1.f, 0.f, 0.f)) * 
-			mat4(.05f, 0.f, 0.f, 0.f, 
-			0.f, 0.05f, 0.f, 0.f, 
-			0.f, 0.f, 1.f, 0.f, 
-			0.f, 0.f, 0.f, 1.f) * 
-			translate(trans, vec3(1.f, 0.f, 0.f));
-	}
-	else {
-		initObj2disk();
-		trans = glm::mat4(.1f, 0.f, 0.f, 0.f,
-			0.f, .1f, 0.f, 0.f, 
-			0.f, 0.f, 1.f, 0.f, 
-			0.f, 0.f, 0.f, 1.f);
-	}
 
-	for (int i = 0; i < 10; ++i) {
-		//w[i] = glm::gaussRand(0.f, 1.f)*2.f;
-		w[i] = glm::linearRand(0.f, 2.f);
-		//phi[i] = glm::gaussRand(0.f, 1.f)*2.f*M_PI;
-		phi[i] = glm::linearRand(0.f, 2.f*(float)M_PI);
-	}
-
-	glUseProgram(program2);
-	glActiveTexture(GL_TEXTURE0);
-
-	if (urandphi != -1)
-		glUniform1fv(urandphi, 10, &phi[0]);
-	if (urandw != -1)
-		glUniform1fv(urandw, 10, &w[0]);
-
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, posparticleVBO);
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, velparticleBuffer);
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, potBuffer);
-
-	glUseProgram(program);
-
-	if (utrans != -1)
-		glUniformMatrix4fv(utrans, 1, false, &trans[0][0]);
+	createmenu();
 
 	glutMainLoop();		// bucle de eventos
 
@@ -196,7 +157,8 @@ void initContext(int argc, char** argv){
 void initOGL()
 {
 	glDisable(GL_DEPTH_TEST);					
-	glClearColor(0.f, 0.f, 0.f, 0.f);		
+	glClearColor(0.f, 0.f, 0.f, 1.f);	
+	glClear(GL_COLOR_BUFFER_BIT);
 
 	glPolygonMode(GL_FRONT, GL_FILL);
 	glDisable(GL_CULL_FACE);	
@@ -224,6 +186,46 @@ void destroy()
 	//shaders y program 2
 	glDetachShader(program2, cshader);
 	glDeleteProgram(program2);
+}
+
+
+
+void createmenu() {
+	glutCreateMenu(menu);
+	glutAddMenuEntry("Disk", 2);
+	glutAddMenuEntry("Directional", 1);
+	glutAddMenuEntry("Quit", 0);
+	glutAttachMenu(GLUT_RIGHT_BUTTON);
+}
+
+void menu(int value) {
+	glClear(GL_COLOR_BUFFER_BIT);
+	if (value == 0) {
+		destroy();
+		exit(0);
+	}
+	else if (value==1) {
+		using namespace glm;
+		initObj2();
+		trans = mat4(.1f, 0.f, 0.f, -.95f,
+				0.f, 0.1f, 0.f, 0.f,
+				0.f, 0.f, 1.f, 0.f,
+				0.f, 0.f, 0.f, 1.f);
+	}
+	else if (value == 2) {
+		initObj2disk();
+		trans = glm::mat4(.01f, 0.f, 0.f, 0.f,
+			0.f, .01f, 0.f, 0.f,
+			0.f, 0.f, 1.f, 0.f,
+			0.f, 0.f, 0.f, 1.f);
+	}
+
+	
+
+	glUseProgram(program);
+
+	if (utrans != -1)
+		glUniformMatrix4fv(utrans, 1, true, &trans[0][0]);
 }
 
 void initShader(const char *vname, const char *fname)
@@ -286,50 +288,6 @@ void initShader2(const char* name) {
 	urandphi= glGetUniformLocation(program2, "phi");
 }
 
-void initObj()
-{
-	using namespace glm;
-
-	vec2* pospot = new vec2[sizescreen];
-	float* potential = new float[sizescreen];
-	vec4* potcolor = new vec4[sizescreen];
-	for (int i = 0; i < WIDTH; ++i) {
-		for (int j = 0; j < HEIGHT; ++j) {
-			//float rand = linearRand(-0.5f, .5f);
-			float rand = gaussRand(0.f, 1.f);
-			potential[i * WIDTH + j] = rand;
-			potcolor[i * WIDTH + j] = vec4(rand,rand,rand,.5f);
-			pospot[i * WIDTH + j] = vec2(i,j)/vec2(size)*2.f-1.f;
-		}
-	}
-
-	glGenVertexArrays(1, &vaopotential);			// crea el VAO
-	glBindVertexArray(vaopotential);				// activa el VAO
-
-	glGenBuffers(1, &pospotVBO);
-	
-	glBindBuffer(GL_ARRAY_BUFFER, pospotVBO);
-	glBufferData(GL_ARRAY_BUFFER,sizeof(vec2)* sizescreen, pospot, GL_STATIC_DRAW);
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
-	glEnableVertexAttribArray(0);
-
-	glGenBuffers(1, &potBuffer);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, potBuffer);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(float) * sizescreen, potential, GL_STATIC_DRAW);
-
-	glGenBuffers(1, &potcolorBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, potcolorBuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * sizescreen, potcolor, GL_STATIC_DRAW);
-	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, 0);
-	glEnableVertexAttribArray(1);
-
-
-	glUseProgram(program);
-
-	glDrawArrays(GL_POINTS, 0, sizescreen);
-
-}
-
 void initObj2() {
 
 	using namespace glm;
@@ -352,7 +310,7 @@ void initObj2() {
 
 	glGenBuffers(1, &posparticleVBO);
 	glBindBuffer(GL_ARRAY_BUFFER, posparticleVBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vec4)*numparticles, parpos, GL_STATIC_READ);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vec4)*numparticles, parpos, GL_DYNAMIC_DRAW);
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
 	glEnableVertexAttribArray(0);
 
@@ -364,7 +322,24 @@ void initObj2() {
 
 	glGenBuffers(1, &velparticleBuffer);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, velparticleBuffer);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(vec2) * numparticles, parvel, GL_STATIC_DRAW);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(vec2) * numparticles, parvel, GL_DYNAMIC_DRAW);
+
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, posparticleVBO);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, velparticleBuffer);
+
+	for (int i = 0; i < 10; ++i) {
+		//w[i] = glm::gaussRand(0.f, 1.f)*2.f;
+		w[i] = glm::linearRand(0.f, 2.f);
+		//phi[i] = glm::gaussRand(0.f, 1.f)*2.f*M_PI;
+		phi[i] = glm::linearRand(0.f, 2.f * (float)M_PI);
+	}
+
+	glUseProgram(program2);
+
+	if (urandphi != -1)
+		glUniform1fv(urandphi, 10, &phi[0]);
+	if (urandw != -1)
+		glUniform1fv(urandw, 10, &w[0]);
 
 }
 
@@ -402,6 +377,23 @@ void initObj2disk() {
 	glGenBuffers(1, &velparticleBuffer);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, velparticleBuffer);
 	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(vec2) * numparticles, parvel, GL_STATIC_DRAW);
+
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, posparticleVBO);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, velparticleBuffer);
+
+	for (int i = 0; i < 10; ++i) {
+		//w[i] = glm::gaussRand(0.f, 1.f)*2.f;
+		w[i] = glm::linearRand(0.f, 2.f);
+		//phi[i] = glm::gaussRand(0.f, 1.f)*2.f*M_PI;
+		phi[i] = glm::linearRand(0.f, 2.f * (float)M_PI);
+	}
+
+	glUseProgram(program2);
+
+	if (urandphi != -1)
+		glUniform1fv(urandphi, 10, &phi[0]);
+	if (urandw != -1)
+		glUniform1fv(urandw, 10, &w[0]);
 
 }
 
@@ -482,14 +474,12 @@ unsigned int loadTex(const char *fileName)
 
 void renderFunc()
 {
-
 	glUseProgram(program);
 
 	// Se renderiza el sistema de particulas
 	glDrawArrays(GL_LINES, 0, 2*numparticles);
 
-	glutSwapBuffers();
-
+	glFlush();
 
 	glUseProgram(program2);
 
@@ -503,6 +493,7 @@ void renderFunc()
 
 	std::cout << "Calculations done" << std::endl;
 
+	
 }
 
 void resizeFunc(int width, int height)
@@ -529,9 +520,18 @@ void keyboardFunc(unsigned char key, int x, int y){
 	if (key == 'n' || key == 'N') {
 		anim = !anim;
 	}
-
-	if (key == 's' || key == 'S') {
+	else if (key == 's' || key == 'S') {
 		saveimage(WIDTH,HEIGHT);
+	}
+	else if (key == 'f' || key == 'F') {
+		/*if (WIDTH == 500 && HEIGHT == 500) {
+			glutFullScreen();
+		}
+		else {
+			resizeFunc(500, 500);
+			glutPositionWindow(0, 0);
+		}*/
+		glutFullScreenToggle();
 	}
 }
 
